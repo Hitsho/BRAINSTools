@@ -1,11 +1,4 @@
-
-from nipype.interfaces.base import CommandLine, CommandLineInputSpec, TraitedSpec, File, Directory
-from nipype.interfaces.base import traits, isdefined, BaseInterface
-from nipype.interfaces.utility import Merge, Split, Function, Rename, IdentityInterface
-import nipype.interfaces.io as nio   # Data i/o
-import nipype.pipeline.engine as pe  # pypeline engine
 import os
-
 #######################  HACK:  Needed to make some global variables for quick
 #######################         processing needs
 # Generate by running a file system list "ls -1 $AtlasDir *.nii.gz *.xml *.fcsv *.wgts"
@@ -49,19 +42,3 @@ atlas_file_names = ["ExtendedAtlasDefinition.xml", "ExtendedAtlasDefinition.xml.
 ## Remove filename extensions for images, but replace . with _ for other file types
 atlas_file_keys = [os.path.basename(fn).replace('.nii.gz', '').replace('.', '_') for fn in atlas_file_names]
 atlas_outputs_filename_match = dict(zip(atlas_file_keys, atlas_file_names))
-
-
-def MakeAtlasNode(atlasDirectory, AtlasNodeName):
-    BAtlas = pe.Node(interface=nio.DataGrabber(outfields=atlas_file_keys),
-                     run_without_submitting=True,
-                     name=AtlasNodeName)
-    BAtlas.inputs.base_directory = atlasDirectory
-    BAtlas.inputs.sort_filelist = False
-    BAtlas.inputs.template = '*'
-    ## Prefix every filename with atlasDirectory
-    atlas_search_paths = ['{0}'.format(fn) for fn in atlas_file_names]
-    BAtlas.inputs.field_template = dict(zip(atlas_file_keys, atlas_search_paths))
-    ## Give 'atlasDirectory' as the substitution argument
-    atlas_template_args_match = [[[]] for i in atlas_file_keys]  # build a list of proper lenght with repeated entries
-    BAtlas.inputs.template_args = dict(zip(atlas_file_keys, atlas_template_args_match))
-    return BAtlas
