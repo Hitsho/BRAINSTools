@@ -115,3 +115,31 @@ def add_dict(d1, d2, force=False):
 
 def GenerateWFName(projectid, subjectid, sessionid, processing_phase):
     return 'WF_' + str(subjectid) + "_" + str(sessionid) + "_" + str(projectid) + "_" + processing_phase
+
+def GenerateSubjectOutputPattern(subjectid):
+    """ This function generates output path substitutions for workflows and nodes that conform to a common standard """
+    import os.path
+
+    patternList = []
+    find_pat = os.path.join('ANTSTemplate', 'ReshapeAverageImageWithShapeUpdate.nii.gz')
+    replace_pat = os.path.join('SUBJECT_TEMPLATES', subjectid, r'AVG_T1.nii.gz')
+    patternList.append((find_pat, replace_pat))
+
+    # find_pat = os.path.join('ANTSTemplate',
+    #                         r'_ReshapeAveragePassiveImageWithShapeUpdate[0-9]*/AVG_[A-Z0-9]*WARP_(?P<structure>AVG_[A-Z0-9]*.nii.gz)')
+    find_pat = os.path.join('ANTSTemplate', r'_ReshapeAveragePassiveImageWithShapeUpdate[0-9]*/AVG_(?P<structure>.*.nii.gz)')
+    replace_pat = os.path.join('SUBJECT_TEMPLATES', subjectid, r'AVG_\g<structure>')
+    patternList.append((find_pat, replace_pat))
+
+    find_pat = os.path.join('ANTSTemplate', r'CLIPPED_AVG_(?P<structure>.*.nii.gz)')
+    replace_pat = os.path.join('SUBJECT_TEMPLATES', subjectid, r'AVG_\g<structure>')
+    patternList.append((find_pat, replace_pat))
+
+    #print "HACK: ", patternList
+    return patternList
+
+def template_subs(subject):
+    """ Return a list of tuples for input to a DataSink.inputs.substitutions value """
+    retval = [('_subject_', ''), ('ReshapeAverageImageWithShapeUpdate.nii.gz', 'AVG_T1.nii.gz')]
+    retval += eval("[('template/{0}', '{0}'), ('template/iteration1/{0}', '{0}/iteration1')]".format(subject))
+    return retval

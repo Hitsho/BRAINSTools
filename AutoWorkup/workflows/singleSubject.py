@@ -106,7 +106,6 @@ def RunSubjectWorkflow(args):
         if not master_config['execution']['plugin'] in ['Linear', 'MultiProc']:
             subjectWorkflow.run(plugin_args=master_config['plugin_args'])
         else:
-            print "HERE I AM!"
             subjectWorkflow.run()
     except:
         print "=+-+" * 25

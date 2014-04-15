@@ -35,10 +35,17 @@ def load_modules(modules):
     module=() {eval `/opt/modules/Modules/$MODULE_VERSION/bin/modulecmd bash $* }`
 
     So running os.execvp() on it doesn't work without the correct file path to the module executable """
+    import os
+
     for module in modules:
         os.system(" ".join(['module load', module]))  # os.execv(module_exe, 'bash', 'load', module])
 
 def setupEnvironment(argv):
+    import os, os.path
+    from utilities.configFileParser import resolveDataSinkOption, parseFile
+    from utilities.pathHandling import validatePath
+    from utilities import misc
+
     environment, experiment, pipeline, cluster = parseFile(argv["--ExperimentConfig"], argv["--pe"], argv['--wfrun'])
     pipeline['ds_overwrite'] = resolveDataSinkOption(argv, pipeline)
     if cluster is None:
@@ -86,20 +93,16 @@ def get_subjects(argv, cache, prefix, dbfile, shuffle=True):
     return subjects
 
 
-if __name__ == "__main__":
+def setup(argv):
     import os.path
-    import sys
     import time
-    from docopt import docopt
-    from utilities.configFileParser import parseFile, resolveDataSinkOption, nipype_options
-    from utilities.pathHandling import validatePath
+
+    from utilities.configFileParser import nipype_options
     from utilities import misc
     from utilities import distributed as dstb
     from workflows import singleSubject as ss
+    from workflows import template
 
-    argv = docopt(__doc__, version='1.1')  # Get argv as dictionary
-    # print argv
-    # print '=' * 100
     print "Configuring environment..."
     environment, experiment, pipeline, cluster = setupEnvironment(argv)
     # for key, value in os.environ.items():
@@ -135,19 +138,36 @@ if __name__ == "__main__":
     print "Running workflow(s) now..."
 
     if argv["--wfrun"].startswith('local'):
-        for args in sp_args_list:
-            ss.RunSubjectWorkflow(args)
+        if 'phase1' in master_config['components']:
+            for args in sp_args_list:
+                ss.RunSubjectWorkflow(args)
+        elif 'template' in master_config['components']:
+            template.template((subjects, master_config))
     else:
         from multiprocessing import Pool
         myPool = Pool(processes=64, maxtasksperchild=1)
         try:
-            all_results = myPool.map_async(ss.RunSubjectWorkflow, sp_args_list).get(1e100)
+            if 'phase1' in master_config['components']:
+                all_results = myPool.map_async(ss.RunSubjectWorkflow, sp_args_list).get(1e100)
+            elif 'template' in master_config['components']:
+                all_results = myPool.map_async(template.template, ((subjects, master_config),)).get(1e100)
         except ValueError, err:
             err.msg += "\nArgs to map_async: {0}".format(sp_args_list)
             raise err
         for index in range(len(sp_args_list)):
             if all_results[index] == False:
                 print "FAILED for {0}".format(sp_args_list[index][-1])
-
+                return False
     print("THIS RUN OF BAW FOR SUBJS {0} HAS COMPLETED".format(subjects))
-    sys.exit(0)
+    return True
+
+
+if __name__ == "__main__":
+    import sys
+    from docopt import docopt
+
+    argv = docopt(__doc__, version='1.1')  # Get argv as dictionary
+    # print argv
+    # print '=' * 100
+    exit = setup(argv)
+    sys.exit(exit)
